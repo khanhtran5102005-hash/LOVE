@@ -1,1 +1,311 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Trái tim hiệu ứng</title>
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
 
+    html, body{
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at center, rgba(28,40,72,0.35) 0%, rgba(8,12,24,0.92) 45%, #02040a 100%);
+    }
+
+    body{
+      position:relative;
+    }
+
+    canvas{
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:block;
+    }
+
+    .content{
+      position:fixed;
+      left:50%;
+      bottom:8%;
+      transform:translateX(-50%);
+      width:min(92vw, 700px);
+      text-align:center;
+      z-index:2;
+      padding:0 10px;
+    }
+
+    .title{
+      color:#ffd3e4;
+      font-size:clamp(20px, 5vw, 34px);
+      font-weight:700;
+      margin-bottom:10px;
+      text-shadow:0 0 14px rgba(255,120,170,0.25);
+    }
+
+    .name{
+      display:inline-block;
+      min-width:220px;
+      max-width:90vw;
+      padding:8px 14px;
+      font-size:clamp(18px, 4.2vw, 26px);
+      color:#ffb8d0;
+      font-weight:600;
+      border-bottom:1px solid rgba(255,184,208,0.45);
+      outline:none;
+      white-space:normal;
+      word-break:break-word;
+    }
+
+    .hint{
+      color:rgba(255,255,255,0.45);
+      font-size:12px;
+      margin-top:8px;
+    }
+
+    .top-glow{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 50% 36%, rgba(255,110,165,0.07), transparent 18%),
+        radial-gradient(circle at 18% 18%, rgba(255,255,255,0.03), transparent 16%),
+        radial-gradient(circle at 82% 20%, rgba(255,255,255,0.02), transparent 16%);
+      z-index:1;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="heartCanvas"></canvas>
+  <div class="top-glow"></div>
+
+  <div class="content">
+    <div class="title"></div>
+    <div class="name" contenteditable="true" spellcheck="false">Chị làm người yêu bé nhaaa</div>
+    <div class="hint">EM YÊU CHỊII</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("heartCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let w = 0, h = 0, cx = 0, cy = 0, scale = 10.5;
+    let particles = [];
+    let dusts = [];
+    let sparkles = [];
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth;
+      h = window.innerHeight;
+
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      cx = w / 2;
+      cy = h / 2 - Math.min(40, h * 0.06);
+
+      scale = Math.min(w, h) * 0.028;
+      if (scale < 7.5) scale = 7.5;
+      if (scale > 13.5) scale = 13.5;
+
+      createParticles();
+    }
+
+    function heartPoint(t, s = scale) {
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = 13 * Math.cos(t)
+              - 5 * Math.cos(2 * t)
+              - 2 * Math.cos(3 * t)
+              - Math.cos(4 * t);
+
+      return {
+        x: x * s,
+        y: -y * s
+      };
+    }
+
+    class HeartParticle {
+      constructor() {
+        this.reset();
+      }
+
+      reset() {
+        const t = Math.random() * Math.PI * 2;
+        const edge = heartPoint(t, scale);
+        const spread = 1 - Math.random() * 0.42;
+
+        this.baseX = cx + edge.x * spread + (Math.random() - 0.5) * 7;
+        this.baseY = cy + edge.y * spread + (Math.random() - 0.5) * 7;
+
+        this.size = Math.random() * 2.1 + 0.7;
+        this.alpha = Math.random() * 0.6 + 0.25;
+        this.phase = Math.random() * Math.PI * 2;
+        this.speed = 0.04 + Math.random() * 0.05;
+        this.wobble = Math.random() * 1.2 + 0.2;
+      }
+
+      update(beat) {
+        this.phase += this.speed;
+        this.x = this.baseX + Math.cos(this.phase * 1.6) * (this.wobble + 0.8) + beat * 4;
+        this.y = this.baseY + Math.sin(this.phase * 1.8) * (this.wobble + 0.8) - beat * 3;
+      }
+
+      draw() {
+        const glow = (Math.sin(this.phase) + 1) / 2;
+        const r = this.size + glow * 1.2;
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 145, 185, ${this.alpha})`;
+        ctx.shadowBlur = 10 + glow * 12;
+        ctx.shadowColor = "rgba(255, 110, 170, 0.95)";
+        ctx.fill();
+      }
+    }
+
+    class DustParticle {
+      constructor() {
+        this.reset();
+      }
+
+      reset() {
+        const t = Math.random() * Math.PI * 2;
+        const p = heartPoint(t, scale * 1.06);
+
+        this.x = cx + p.x + (Math.random() - 0.5) * 34;
+        this.y = cy + p.y + (Math.random() - 0.5) * 34;
+        this.vx = (Math.random() - 0.5) * 0.12;
+        this.vy = (Math.random() - 0.5) * 0.12;
+        this.size = Math.random() * 1.1 + 0.25;
+        this.alpha = Math.random() * 0.22 + 0.05;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 182, 205, ${this.alpha})`;
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = "rgba(255, 145, 185, 0.55)";
+        ctx.fill();
+      }
+    }
+
+    class Sparkle {
+      constructor() {
+        this.reset();
+      }
+
+      reset() {
+        this.x = Math.random() * w;
+        this.y = Math.random() * h;
+        this.size = Math.random() * 1.7 + 0.4;
+        this.alpha = Math.random() * 0.4 + 0.05;
+        this.phase = Math.random() * Math.PI * 2;
+        this.speed = Math.random() * 0.05 + 0.02;
+      }
+
+      update() {
+        this.phase += this.speed;
+      }
+
+      draw() {
+        const a = this.alpha * (0.5 + (Math.sin(this.phase) + 1) / 2);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = "rgba(255,255,255,0.8)";
+        ctx.fill();
+      }
+    }
+
+    function createParticles() {
+      particles = [];
+      dusts = [];
+      sparkles = [];
+
+      const smallScreen = w < 500;
+      const heartCount = smallScreen ? 620 : 900;
+      const dustCount = smallScreen ? 160 : 260;
+      const sparkleCount = smallScreen ? 35 : 55;
+
+      for (let i = 0; i < heartCount; i++) {
+        particles.push(new HeartParticle());
+      }
+
+      for (let i = 0; i < dustCount; i++) {
+        dusts.push(new DustParticle());
+      }
+
+      for (let i = 0; i < sparkleCount; i++) {
+        sparkles.push(new Sparkle());
+      }
+    }
+
+    function drawHeartGlow(beat) {
+      const radius = Math.min(w, h) * 0.28 + beat * 20;
+      const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius);
+      grad.addColorStop(0, "rgba(255, 105, 165, 0.10)");
+      grad.addColorStop(0.4, "rgba(255, 90, 155, 0.05)");
+      grad.addColorStop(1, "rgba(255, 90, 155, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function animate(time) {
+      ctx.clearRect(0, 0, w, h);
+
+      const beat = Math.sin(time * 0.008) * 0.5 + 0.5;
+
+      drawHeartGlow(beat);
+
+      ctx.save();
+      for (const s of sparkles) {
+        s.update();
+        s.draw();
+      }
+      ctx.restore();
+
+      ctx.save();
+      for (const d of dusts) {
+        d.update();
+        d.draw();
+      }
+      ctx.restore();
+
+      ctx.save();
+      for (const p of particles) {
+        p.update(beat);
+        p.draw();
+      }
+      ctx.restore();
+
+      requestAnimationFrame(animate);
+    }
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
